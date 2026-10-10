@@ -1,278 +1,167 @@
-# Break
+<h1 align="center">Break</h1>
 
-蒸汽波踏板效果器（UI = 蒸汽波踏板机，DSP = 磁带机走带机构）。
+<p align="center"><strong>蒸汽波踏板 · 整台机器是一台磁带机</strong></p>
 
-## 本阶段包含
+<p align="center">
+  <em>油门 · 刹车 · 磁带机走带机构</em><br>
+  <em>Gas · Brake · Tape Machine</em>
+</p>
 
-- **DSP 已接入**：`processBlock` 走 `TapeEngine.h` 的走带机构（详见「DSP：走带机构」一节）。
-  两踏板松开时直接旁通（输出 = 输入，0 延迟）。
-- 底图 = `assets/ui_plate_unlocked.png`（双空腔：油门空腔来自"扣掉油门踏板保留转轴"、
-  刹车空腔来自"扣掉刹车踏板"，均与基准图零平移对齐，由
-  `WorkBuddy/outputs/tools/make_assets.py` + `make_brake_assets.py` 生成；
-  新版在两块数码屏之间加了**锁定拨杆**）。拨杆开启态只存了开关那一小块的
-  `assets/switch_on.png`（96×150，从锁定底图裁剪），减小打包体积。
-- 油门踏板 = `assets/gas_sprite.png`，刹车踏板 = `assets/brake_sprite.png`，
-  刹车臂（连杆）= `assets/arm_sprite.png`。各自按力度做 **4 点单应插值**实时变形
-  （标定结构体注入，油门 1 层 / 刹车 2 层）：
-  - `PedalAnimator.h` 的 `gasCal / brakeCal / brakeArmCal` 是唯一标定入口，
-    分别与 make_assets.py / make_brake_assets.py / make_arm_sprite.py 一一对应，两边改必须同步。
-- 刹车 = 吊挂式：运动组件分**臂层**（转轴→面顶金属带，臂顶两角两姿态钉死在转轴）
-  与**面层**；渲染顺序臂先、面后（面盖住臂底连接处，无缝）。空腔图把臂也扣掉了，
-  所以臂必须独立成层，不能贴回底图当静态件。
-- **臂透视与变形幅度**：踩下 = 整体远离使用者 → **变小**（方向勿标反，曾把 FULL
-  底边标成 90px 变宽 → 连杆看着在放大）。**幅度要与面统一**：面收窄 78%/70%，
-  臂收窄比也应同档——曾收窄到 28px（54%）被反馈「连杆变形过大」，现改为
-  52→38px（~73%）+ 左移仅 8px 跟随面顶中心（FULL 底角 (375,623)/(337,625)）。
-- **踩下阴影**：面底边正下方画**接触阴影**（同心椭圆软黑影，中心 alpha≈0.5f，
-  随力度加深下沉），绘制顺序 底图→阴影→臂→面，且**裁剪到凹槽框内**
-  （`breakcal::brakeRecess()/gasRecess()`，与 make_brake_assets.py 的 RECESS
-  数值一致），避免越到金属外框上。另加**踩下暗化**：`PedalAnimator::setDarkening`
-  （油门 0.10 / 刹车面与臂 0.16，预乘 ARGB 只缩 RGB），强化压入阴影的层次。
-  阴影区域并入每踏板 repaint 并集。
-- 刹车标定：亮段成对识别面行 + 对角极值提角（REST y601..745，FULL y616..714，
-  面区互相关无残余平移；f=1 面内差 ~20 为 AI 重绘肋条的内容差，非位置误差）。
-- **七段数码管读数**（`SegDisplay.h`，移植 pedal_anim.py 的 draw_seven_seg）：
-  程序绘制 4 位数字 + 单位 N，玻璃底色矩形覆盖底图烧录的 000/127。
-  力度→牛顿线性映射：**刹车 0-2000N / 油门 0-1000N**（`breakForceMaxN /
-  gasForceMaxN`，显示用标定，非物理量）。颜色采样自底图：点亮 RGB(63,218,241)、
-  玻璃底 RGB(34,13,53)；点亮段带辉光描边，未点亮幽灵段保留。
-  屏区玻璃矩形 = `breakDisplay()/gasDisplay()`（250,258..494,324 / 662,258..906,324，
-  `_display_bbox.py` 暗区检测 + 目检微调）。读数变化才 repaint 对应屏区。
-- 交互：在**左侧刹车凹槽 / 右侧油门凹槽**分别**按住向下拖动**加力、向上减力，
-  **松手回弹**；两踏板力度独立（`brakeForce` / `gasForce` 参数，0..1）。
-- **锁定拨杆**：两块数码屏之间（`breakcal::lockSwitchHitArea()`，x 536..632）
-  的拨杆控制是否锁定踏板——拨杆开启（锁定）时踩下踏板**松手不自动回弹**，
-  力度保持当前值；再次拖动可增减。**关闭锁定立即触发回弹**（把已锁定踏板
-  targetForce 置 0）。切换锁定态只在拨杆位置贴 `switch_on.png` 小块图（开启态），
-  始终画未锁定底图，避免两张 AI 图整图色调跳变、也减小打包体积。点击厂牌
-  铭牌仍跳转官网（文字已烧录进底图，不再程序绘制厂牌，版本号仍程序绘制）。
-- **窗口缩放**（同 CRTLoss）：base 设计稿 1168×864，一切绘制/命中/repaint 都在
-  base 坐标计算，`getScale() = getWidth()/1168` 统一换算（绘制用
-  AffineTransform::scale，鼠标事件坐标除以 scale，repaint 区域乘 scale）。
-  默认 3/4 尺寸 876×648 打开，右下角拖动等比缩放
-  （`setResizable(true,true)` + `ComponentBoundsConstrainer::setFixedAspectRatio`），
-  范围 1/4 .. 1:1（base 分辨率为上限，再大会插值发虚）。
-  `resized()` 里必须全量 repaint——动画帧的局部 repaint 区域是旧 scale 下算的。
-- 60Hz 单一 Timer 统一驱动动画，局部 repaint。**repaint 区域按踏板独立计算**
-  （`PedalState::lastPaintBounds`）——曾共享一个成员，两踏板交替运动时互相覆盖
-  对方的旧位置记录，repaint 漏区 → 偶发残影（非必现，就是这个）。
-- `tests/headless_render.cpp`（break_headless 目标）：无头跑同一份动画代码+资产，
-  输出叠加层 PNG、**整帧合成图 frame_check_0/1/2.png（含 seg7 读数）**与
-  不透明像素统计，用于回归验证（需 `-DBREAK_DEBUG_RENDER=1` 打印矩阵）。
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/platform-Windows%20%2F%20macOS-lightgrey" alt="Platform">
+  <img src="https://img.shields.io/badge/framework-JUCE%208.0.12-orange" alt="JUCE">
+</p>
 
-## 已修的坑（勿再踩）
+<p align="center">
+  <code>░▒▓ SYNTHWAVE ▓▒░</code><br>
+  <code>gas ░ brake ░ tape stop ░ palm trees</code>
+</p>
 
-- 手动搭 MSVC 构建环境时，`PATH` 必须包含 Windows SDK 的 `bin\<ver>\x64`
-  （`rc.exe`/`mt.exe`），只配 `INCLUDE`/`LIB` 会让 CMake 编译器自检在链接步
-  骤失败（`rc: no such file or directory`）→ 直接改用 `build.ps1`。
-- DLT 方程组右端项必须是 `+u/+v`（曾经写成 `-u/-v`，解出翻转矩阵 → 踏板整体不可见）。
-- 单应插值采样的是**预乘 ARGB**，插值后不要再调 `premultiply()`（双重预乘压黑半透明边缘）。
-- JUCE 把 SharedCode.lib 作为 order-only 依赖：只改插件源码后用
-  `--target Break_Standalone`（或默认 all）才会重链 exe；`--target Break` 只编 SharedCode。
-- `juce_add_binary_data` 增删资产后 `BinaryData.h` 可能不重新生成（stale）：
-  删掉 `juce_binarydata_BreakBinaryData/JuceLibraryCode/BinaryData.h` 再编。
-- repaint 区域必须覆盖**上一帧 overlay 位置 ∪ 当前帧位置**，且每踏板独立记录，
-  否则局部重绘漏区 → 残影。
-- 接触阴影区域必须并入每踏板 repaint 并集（阴影椭圆可超出面四角 bbox 下方
-  ~30px），漏并 → 阴影残迹。
-- `Rectangle<float>` 没有 `getSmallestIntegerBounds()`，用 `toNearestInt()`。
-- JUCE 压缩 BinaryData 变量名里的连续分隔符：`vt323-latin.ttf` → `vt323latin_ttf`。
-- **宿主自动化参数 ≠ 编辑器写回参数**：宿主在音频线程同步调 `setValueNotifyingHost`
-  （触发 `parameterValueChanged`），编辑器 `timerCallback` 在消息线程。若 timer
-  每帧按 `|param - force|` 写回参数，会在"参数已更新、force 未更新"的竞态窗口里
-  把旧 `force` 写回、覆盖宿主曲线值 → 曲线不跟随/旋钮跳回。正确做法：用
-  `PedalState::editorDriving` 标志，**只在用户拖动/回弹时写回**，宿主自动化期间
-  完全不写回（`applyHostForce` 同时把 `editorDriving` 置 false 表示宿主接管）。
+---
 
-## 顶部铭牌文字（程序绘制，非图片）
+## 概述 / Overview
 
-- 底图上的旧文字（DREAMSCAPE / AUDIO MOD // STUDIO UNIT）已离线抹除：
-  `outputs/tools/wipe_labels.py`（mini-inpaint：亮笔画 mask + 膨胀 3px + 邻域扩散
-  填充，保留铭牌紫色底与做旧纹理）。备份在 `assets/ui_plate_backup.png`。
-- 新文字由 `Labels.h` 运行时绘制：左上 `iisaacbeats.cn`（固定）、右上
-  `v + JucePlugin_VersionString`（自动跟随 CMake `VERSION`，改版本不用动图）。
-- 字体 VT323（官网同款，woff2→ttf 存 `assets/vt323-latin.ttf` 嵌入 BinaryData）。
-  16px（8×16 网格整数倍）渲染边缘最硬；字色 0xffb899d4（原字采样）。
+**Break** 把整台效果器做成一台磁带机，所有控制都压在两个踏板上，没有其它旋钮或按钮：**油门**让磁带加速（音高上扬、变亮、磁带饱和推进），**刹车**让磁带减速直至彻底停转（音高下滑、wow/flutter 加剧、高频丢失、摩擦啸叫），两踏板都松开时**直接旁通**（输出 = 输入，0 延迟）。顶部的 Synthwave 场景和两块七段数码管读数，都是程序绘制、实时响应的。
 
-## 顶部小屏：程序化 Synthwave 场景（双时间轴）
+> **中文**：一款蒸汽波（Vaporwave）风格的踏板效果器。核心是**真·varispeed 走带机构**（读写头分离 + 分数插值，时长真的被拉长/压缩，不是 pitch shifter），加速时的"片段重复"按宿主 BPM 对齐回卷。界面是一个 1168×864 的踏板机：渐变落日、线框山脉、透视霓虹网格与随前进距离掠过的棕榈树，全部由 `SynthwaveScene.h` 程序绘制。
 
-- `SynthwaveScene.h` 纯绘制函数（与 SegDisplay.h 同约定），覆盖底图烧录的
-  AI 静态场景；玻璃区实测内沿 `(66, 50, 1036, 161)`（base 坐标，四角 8x
-  放大目检；用户半缩放实测 516x80@(35,82)×2 互证），微小圆角 8px
-  （`cornerRadius`，`addRoundedRectangle` 裁剪）。
-- 元素：渐变天空、闪烁星空（确定性 hash，无状态）、巨大落日（逐水平行段
-  绘制，条纹行跳过 → 真缝隙露天空，每 2 拍循环下移）、双层线框山脉
-  （中央 V 谷露太阳，近山品红描边+辉光）、透视网格地面（纵向放射 +
-  横向青线随前进距离流动）、**两侧棕榈树剪影**（沿轨道世界坐标固定，
-  左右独立随机间距、不同相，从极远处淡入逼近、放大再掠过）、
-  地平线辉光带、CRT 扫描线。
-- **双时间轴**：`beatPhase`（BPM 拍）只驱动太阳脉动/条纹等非前进运动，
-  `PluginProcessor::getCurrentBpm()` 从 playhead 读（JUCE 8
-  `getPosition()->getBpm()` Optional API，无宿主回落 120，`displayBpm`
-  EMA 平滑防抖）；**`travel`（前进距离）由两踏板驱动**——`forwardSpeed`
-  = 基速 ×(1+油门增益) ×(1-刹车)，满刹车停止、满油门加速，网格滚动与
-  棕榈树都随 `travel` 连续累加（与 BPM 解绑，速度改变位置零跳变）。
-- 调参入口全在 `SynthwaveScene.h`：太阳大小/位置（`sunR`/`sunCY`）、
-  网格密度（横向 `0.30f` / 纵向 `W*0.13f`）、前进基速 `baseSpeedCellsPerSec`
-  / 油门增益 `gasSpeedGain`、棕榈树间距 `spacing` / 最远 `farZ`、
-  条纹密度（`u * 5.0f`）。
-- 无头验证：`break_headless` 输出 `synth_check_0/1/2.png` 三相位帧。
+> **English**: A vaporwave-styled pedal effect built around a real tape transport. The whole machine is a tape deck with two pedals — **gas** speeds the tape up (pitch up, brighter, more saturation), **brake** slows it down to a full tape stop (pitch down, wow/flutter, HF loss, scrape noise). Releasing both pedals bypasses the DSP completely (output = input, zero latency). The UI is a procedurally-drawn pedal machine: a gradient sunset, wireframe mountains, a perspective neon grid, and palm trees that recede as you move forward.
 
-## 构建（本机已验证）
+> 分类 Category：Fx / Lo-Fi / Tape ｜ 插件代码 Plug-in Code：`Brk1` ｜ 厂商 Vendor：iisaacbeats.cn
+
+---
+
+## 预览 / Preview
+
+<p align="center">
+  <img src="readme_1.png" alt="Break - 蒸汽波踏板效果器 / vaporwave pedal effect" width="80%">
+</p>
+
+<p align="center">
+  <code>左侧刹车 ░ 右侧油门 ░ 中间锁定拨杆 ░ 顶部 Synthwave 场景</code><br>
+  <em>brake on the left — gas on the right — lock switch in the middle — synthwave scene on top.</em>
+</p>
+
+---
+
+## 功能模块 / Modules
+
+| 模块 / Module | 功能描述 / Description |
+|------|---------|
+| **走带机构 DSP** | **真 varispeed**：4 秒环形缓冲读写分离，4 点 Catmull-Rom 分数插值，时长真的被拉伸/压缩。加速回卷按**宿主 BPM 对齐**（片段重复落在节拍上）。<br>*Real varispeed: split read/write heads with 4-point Catmull-Rom interpolation; the tape really stretches/compresses time. Speed-up rewinds are BPM-aligned to the host.* |
+| **静止旁通 Bypass** | 两踏板松开且已回位 → 30ms 等功率交叉淡化切到**纯旁通**（0 延迟、逐比特等于输入）；松手瞬间读头立即重置。<br>*At rest, crossfade to a true bypass (zero latency, bit-identical output); the read head resets instantly on release.* |
+| **油门踏板 Gas** | 走带加速 1→2^0.5，音高上扬 +6 半音；tilt 提亮 +5.5dB、去隆隆声、磁带饱和推进。<br>*Speeds the tape up to 2^0.5 (pitch +6 semitones), brightens via tilt EQ and drives the tape saturation.* |
+| **刹车踏板 Brake** | 走带减速 1→2^-4.6（speed≈0.041），音高下滑 -4.6 八度；tilt 压暗 -7.5dB、磁头低通 17k→260Hz、wow/flutter 加重 + 摩擦啸叫，满刹淡出到静音（磁带停转）。<br>*Slows the tape to 2^-4.6 (−4.6 octaves), darkens, adds wow/flutter and scrape, fading to silence at full stop.* |
+| **刹车优先 Brake-priority** | 油门 + 刹车同时踩下时，**只有刹车生效**（油门视为 0）。<br>*When both are pressed, only the brake is applied.* |
+| **锁定拨杆 Lock switch** | 两块数码屏之间的拨杆：开启后踩下踏板**松手不自动回弹**（力度保持），关闭立即回弹。<br>*A switch between the two readouts locks the pedals (no spring-back on release).* |
+| **Synthwave 场景** | 渐变天空、闪烁星空、条纹落日、双层线框山脉、透视霓虹网格、**随前进距离掠过的棕榈树**（左右独立随机间距，从极远处淡入）。<br>*Gradient sky, twinkling stars, striped sun, wireframe mountains, neon grid, and palm trees that fade in from the distance.* |
+| **双时间轴** | `beatPhase`（BPM）驱动太阳/条纹；`travel`（前进距离）由**两个踏板**驱动（满刹停止、满油门加速），网格与棕榈树随之滚动。<br>*Two timelines: BPM drives the sun, pedals drive forward motion (grid + palms).* |
+| **七段数码管** | 程序绘制 4 位读数 + 单位 N，力度→牛顿线性映射（刹车 0–2000N / 油门 0–1000N）。<br>*Procedural 7-seg readouts with a force-to-newton mapping.* |
+| **自动化 Automation** | `gasForce` / `brakeForce` 两个参数暴露给宿主（0..1）。<br>*Two host-automatable parameters.* |
+
+---
+
+## 技术栈 / Tech Stack
+
+| 项目 / Item | 版本 / Version |
+|------|------|
+| 语言 Language | C++17 |
+| 框架 Framework | [JUCE](https://juce.com) 8.0.12（FetchContent 自动拉取） |
+| 构建 Build | CMake ≥ 3.22 |
+| 格式 Formats | VST3 · AU · Standalone |
+| 安装器 Installer | Inno Setup 6（Windows）／ pkgbuild + productbuild（macOS） |
+
+---
+
+## 构建 / Build
 
 ```bash
-# 推荐：一键脚本（自动用 vswhere 探测最新 MSVC + Windows SDK）
-powershell -NoProfile -ExecutionPolicy Bypass -File "i:/Break/build.ps1"
-powershell -NoProfile -ExecutionPolicy Bypass -File "i:/Break/build.ps1" -Target Break_VST3
+# 克隆仓库 Clone
+git clone https://github.com/sweetorange1/Break.git
+cd Break
 ```
 
-手动等价命令（脚本内部就是把环境配好再跑这些）：
+**Windows**（推荐用 `build.ps1`，自动用 vswhere 探测 MSVC + Windows SDK + 本地 JUCE 源码）：
 
 ```bash
-# Ninja + MSVC（手动设置 INCLUDE/LIB/PATH，勿用 Enter-VsDevShell）
-cmake -S I:\Break -B I:\Break\cmake-build-ninja -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl \
-  -DFETCHCONTENT_SOURCE_DIR_JUCE="I:\CRTLoss\cmake-build-release-visual-studio\_deps\juce-src"
-
-# 全量（含 Standalone + VST3 + headless）
-cmake --build I:\Break\cmake-build-ninja --config Release
-
-# 或按目标单独编（改 FORMATS 后需先重跑上面的 cmake 配置一步）
-cmake --build I:\Break\cmake-build-ninja --config Release --target Break_Standalone
-cmake --build I:\Break\cmake-build-ninja --config Release --target Break_VST3
-cmake --build I:\Break\cmake-build-ninja --config Release --target break_headless
+powershell -NoProfile -ExecutionPolicy Bypass -File "build.ps1"              # 全量
+powershell -NoProfile -ExecutionPolicy Bypass -File "build.ps1" -Target Break_VST3
 ```
 
-产物：
-- Standalone：`cmake-build-ninja/Break_artefacts/Release/Standalone/Break.exe`
-- VST3：`cmake-build-ninja/Break_artefacts/Release/VST3/Break.vst3`（JUCE 8 内置 VST3 SDK，无需另下 steinberg；manifest 资源嵌入，无独立 moduleinfo.json）
-
-## DSP：走带机构（`TapeEngine.h`）
-
-整台机器 = 一台磁带机，**所有控制都在两个踏板上，没有其它控件**。
-引擎是纯 C++（不依赖 JUCE），便于无头测试；`PluginProcessor` 只做参数读取与转发。
-
-### 踏板语义
-
-| | 走带速度 | 音高 | 音色 | 机械声 |
-|---|---|---|---|---|
-| 油门 `gas` | 1.0 → 2^0.5 = 1.41 | **上扬** +6 半音 | tilt 提亮 +5.5dB、去隆隆声、磁带饱和推进 | 轻微 wow/flutter |
-| 刹车 `brake` | 1.0 → 2^-4.6 = 0.041 | **下滑** -4.6 八度 | tilt 压暗 -7.5dB、磁头低通 17k→260Hz | wow/flutter 加重 + 摩擦啸叫 |
-| 都松开 | 回 1.0，读头弹簧回位 | 原音高 | **直接旁通（输出=输入，0 延迟）** | 无 |
-
-速度按 `2^八度` 映射（踏板行程 = 音高线性）；加速时间常数 80ms、
-制动 35ms（刹车更"咬手"）。**油门+刹车同踩 → 刹车优先**：引擎在
-`brakeTarget > 0` 时把油门清零，只按刹车走带（不再叠加）。
-
-### 静止旁通 + 变速实现（真 varispeed，不是 pitch shifter）
-
-- 环形缓冲 4.0s（取到 2 的幂），写头按输入推进，**读头按 `speed` 独立推进**，
-  4 点 Catmull-Rom 分数插值 → 时长是真的被拉长/压缩（tape stop 会真的把时间拖住）。
-- **静止直接旁通**：两踏板都松开且已回位（speed≈1、delay≈loopLen）时，用 30ms 等功率
-  交叉淡化切到纯旁通，输出 = 输入、0 延迟；读头空转待命（`processBypass` 只推进写头+读头，
-  不走滤波链）。因此不再上报固定延迟（`setLatencySamples` 已移除）。
-- **松手瞬间读头立即重置**：踏板从按下回弹到 0 的下降沿（`wasPedalDown && !pedalDown`），
-  直接把读头 `setDelay(loopLen)`、`speedSm=1`。这样音高**立即**恢复正常，不再有
-  "追带"的加速尾巴（曾经松手后要追带几秒才归位，用户反馈"0N 之后声音还在加速"）。
-  读头跳变被随后 30ms 旁通淡化掩盖。见 `tests/dsp_smoke.cpp` 第 7 项。
-- **弹簧回位**（保留作微调）：旁通态 / BPM 变化时用一个比例项把延迟平滑拉回 loopLen
-  （"机器转回正常速度"）。门控必须够陡——曾经 `*1.6` 导致轻踩刹车时回位力抵消制动，
-  音高降不下去（0.3 刹车只能降到 0.54 而非 0.38）。
-- **接头（splice）**：延迟漂出缓冲范围时把读头搬回 loopLen，40ms 等功率交叉淡化。
-  减速（刹车）时读头越落越后，落到缓冲底才回卷（满刹车发生在已静音段，听不到）。
-
-### BPM 对齐回卷（加速的"片段重复"落在节拍上）
-
-加速时读头追写头，delay 会缩到 0，必须回卷（= 重复播放一段）。回卷改为**按宿主 BPM
-对齐**，而不是撞到边界才随机跳：
-
-- `loopLen = beatsPerLoop × beatLen`（`beatsPerLoop=1`，即一次重复 1 拍；`beatLen = fs*60/bpm`）。
-- `PluginProcessor::readPlayhead` 从 playhead 读 BPM 与 `ppqPosition`，换算成
-  "当前块起点到下一个节拍边界的样点数" 传给引擎；引擎在块内逐样点递减节拍时钟。
-- 当读头按当前速度"未来一拍内会撞写头"时，**调度一次回卷**，等节拍时钟归零
-  （= 节拍边界）才执行，回卷落点 = loopLen。因此每次重复都从节拍上开始。
-- 回卷瞬间的 40ms 淡化期间读头正在过渡，此时**禁止再次调度**
-  （`!isFading()`），否则会因 `getDelaySamples()` 仍返回旧读头位置而误判、触发
-  双重回卷（已修，见 `tests/dsp_smoke.cpp` 第 6 项）。
-- 实测 @120bpm：满油门回卷发生在 `47998, 95998, …`（间隔 48000 样点 = 2 拍，
-  相位偏差 0 样点）。
-
-### 信号链（每声道，顺序固定；旁通态整体跳过）
-
-```
-输入 → 磁带饱和(tanh, 油门量) → +磁带底噪 →【走带：wow/flutter 调制速度】
-     → 停止闸门 → 高通(并联, 油门量) → Tilt EQ(1kHz pivot) → 磁头低通(并联, 刹车量)
-     → +机械摩擦噪声(带通白噪) → 软限幅
-```
-
-- **底噪写在磁带上**（进缓冲前注入）→ 会跟着一起变速；**摩擦噪声在走带后**注入（不变速）。
-- 停止闸门：`speed < 0.16` 开始淡出，`< 0.055` 完全静音 → 满刹车最终是"磁带停转"的静音。
-- 两声道 wow/flutter 相位错开 → 立体声宽度（真实磁带两轨不同步）。
-
-### 透明性约束（改代码别踩）
-
-静止状态必须**逐比特级等于输入**（直接旁通），湿态的所有滤波器都是**并联混合**介入
-（`y += mix*(filtered - y)`），而不是串联固定滤波器：
-
-- 低通 `lpMix = brake`、高通 `hpMix = gas`、饱和 `driveMix = gas`。
-- wow/flutter 深度**不能留常数项**：常数 0.004 就让读头延迟被 ±89 样点缓慢调制。
-- 旁通切换用干/湿交叉淡化（30ms），避免从 0 延迟干声到 loopLen 延迟湿声的硬切咔哒。
-
-### 无头验证
+**macOS**（Xcode 生成器，通用二进制）：
 
 ```bash
-cmake --build I:\Break\cmake-build-ninja --config Release --target break_dsp_test
-I:\Break\cmake-build-ninja\break_dsp_test.exe     # ALL_OK
-```
-
-覆盖：静止旁通（输出==输入，误差 0）、满刹车停转、满油门电平、随机踏板下的 NaN/峰值、
-**踏板→音高方向**（油门 0.6 实测 1.226 / 期望 1.231；刹车 0.3 实测 0.390 / 期望 0.384）、
-**加速回卷对齐节拍**（回卷相位偏差 0 样点）、
-**松手瞬间读头重置**（松手后 0.4s 内输出==输入，误差 0）。
-
-## 遥测 / 更新提示 / 安装
-
-- **遥测**（`shared/IisaacTelemetry.h`，header-only，移植自 LDSJvst）：在编辑器
-  构造末尾创建 `iisaac::telemetry::Session`（product `break`），5 秒后起工作线程，
-  读/建 `%APPDATA%\iisaacbeats\Telemetry\break.xml`（进程锁），每日至多向
-  `iisaacbeats.cn/api/telemetry/ping` POST 一次；失败静默、留 15 分钟冷却，跨 UTC
-  日自动再报。编辑器析构开头 `telemetrySession.reset()` 保证在消息线程 join 工作线程。
-  定义 `IISAAC_TELEMETRY_DISABLED` 或设环境变量 `IISAAC_TELEMETRY_DISABLED=1` 可停用。
-- **更新提示**（`source/network/{Version,UpdateChecker}` + `source/ui/UpdateDialog`）：
-  Processor 构造里延迟 5 秒（进程级去重）异步 GET `iisaacbeats.cn/api/update/check`，
-  若 `has_update` 且本地版本较旧，则弹品红霓虹风格更新弹窗（Download / Remind Me Later；
-  `force_update` 时不可跳过）。服务端字段：`has_update / latest_version / download_url /
-  changelog / force_update`。
-- **安装脚本**（Windows，Inno Setup 6）：`build_installer.bat` 自动探测 Release 版
-  `Break.vst3` 并调用 `Break_installer.iss` 打包，产物 `dist\Break_Setup_<ver>_x64.exe`，
-  安装到 `C:\Program Files\Common Files\VST3\iisaacbeats.cn`。版本号与 CMake 的
-  `VERSION` 保持同步（改版本时同步更新 `.iss` / `.bat` 里的版本常量）。
-- **安装脚本**（macOS）：`build_installer_mac.sh` 用 `pkgbuild`/`productbuild` 把
-  VST3 + AU 打成 `.pkg`，默认再 `hdiutil` 封 `.dmg`（`--no-dmg` 可跳过）。版本号
-  自动从 CMakeLists 的 `project(Break VERSION ...)` 读取，无需手动同步。
-
-## macOS 构建与打包
-
-```bash
-# 在 Mac 上（需 Xcode Command Line Tools）以 Release 构建 VST3 + AU + Standalone
 cmake -S . -B cmake-build-release -G Xcode \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
   -DFETCHCONTENT_SOURCE_DIR_JUCE=<你的 JUCE 源码目录>
-
 cmake --build cmake-build-release --config Release
-# 产物：cmake-build-release/Break_artefacts/Release/{Standalone,VST3,AU}
-
-# 打包 .pkg + .dmg
-chmod +x build_installer_mac.sh
-./build_installer_mac.sh
 ```
 
-说明：`FORMATS Standalone VST3 AU`，`AU` 仅在 macOS 生效（Windows 自动忽略）。
-`CMAKE_OSX_ARCHITECTURES="x86_64;arm64"` 打通用二进制，同时兼容 Intel 与 Apple
-Silicon。遥测/更新检查在 macOS 用 JUCE 默认的 NSURLSession 后端，无需 CURL。
+产物 Output：`cmake-build-*/Break_artefacts/Release/{Standalone,VST3,AU}`。
 
-## 后续待办
+> 网络后端说明：遥测 / 更新检查走 JUCE 默认原生后端（Windows = WinHTTP，macOS = NSURLSession），**不需要 CURL**。
 
-- 力度→牛顿的真实硬件映射（当前为显示用线性标定）。
-- APVTS 参数化、preset 保存。
+## 打包安装器 / Packaging
+
+```bash
+# Windows —— 需要先安装 Inno Setup 6 / Requires Inno Setup 6
+build_installer.bat
+# 产物 Output：dist\Break_Setup_1.0.0_x64.exe
+
+# macOS —— 需先用 Release 构建 VST3 + AU 目标
+chmod +x build_installer_mac.sh
+./build_installer_mac.sh          # pkg + dmg
+./build_installer_mac.sh --no-dmg # 仅 pkg only
+# 产物 Output：dist\Break_Setup_1.0.0_macOS.pkg / .dmg
+```
+
+Windows 安装器把 VST3 装入 `C:\Program Files\Common Files\VST3\iisaacbeats.cn`（需管理员权限）；macOS 安装器提供 VST3（`/Library/Audio/Plug-Ins/VST3`）与 AU（`/Library/Audio/Plug-Ins/Components`）两个可选组件。
+
+---
+
+## 隐私说明 / Privacy
+
+- **更新检查 Update check**：启动后异步请求 `iisaacbeats.cn` 一次（5s 超时，失败静默），仅在有新版本时弹窗提示。
+  *Async check to `iisaacbeats.cn` on startup (5s timeout, silent on failure); prompts only when a new version exists.*
+- **匿名遥测 Telemetry**：每日一次匿名的"界面打开"事件（无任何音频数据、无个人身份信息），客户端为随机 UUID。
+  *Anonymous "ui opened" event once per day (no audio, no PII), random client UUID.*
+- 停用遥测 Disable telemetry：启动前设置环境变量 `IISAAC_TELEMETRY_DISABLED=1`。
+  *Set `IISAAC_TELEMETRY_DISABLED=1` before launch.*
+
+---
+
+## 工程笔记 / Engineering Notes
+
+开发中踩过的坑，改代码前务必先看（详见 git 历史）：
+
+- 静止状态必须**逐比特等于输入**：所有滤波器都用**并联混合**介入（`y += mix*(filtered - y)`），wow/flutter 深度不能留常数项。
+- **松手瞬间读头立即重置**（`wasPedalDown && !pedalDown`），否则音高恢复会带"追带"加速尾巴。
+- 加速回卷调度在**节拍边界**执行；回卷淡化期间禁止再次调度（防双重回卷）。
+- **宿主自动化 ≠ 编辑器写回**：只在 `editorDriving`（用户拖动/回弹）时写回参数，否则与音频线程竞态覆盖宿主曲线。
+- `repaint` 区域必须覆盖"上一帧 ∪ 当前帧"，且每踏板独立记录，否则局部重绘漏区 → 残影。
+- 4 点单应插值采样的是**预乘 ARGB**，插值后不要再 `premultiply()`（双重预乘压黑半透明边缘）。
+- 锁定态只贴 `switch_on.png` 小块图（96×150），始终画未锁定底图，避免两张 AI 底图整图色调跳变、也减小包体。
+
+---
+
+## 许可 / License
+
+业务代码版权归 iisaacbeats.cn 所有。
+*The DSP/UI/network code is © iisaacbeats.cn.*
+
+第三方组件 Third-party：
+
+| 组件 / Component | 许可 / License |
+|------|------|
+| JUCE 8 | GPL-3.0 / 商业双授权 GPL-3.0 / commercial dual |
+
+---
+
+<p align="center">
+  <code>░▒▓ GAS ░ BRAKE ░ TAPE STOP ▓▒░</code><br>
+  <em>让声音在磁带上慢下来。</em><br>
+  <em>Let the sound slow down on the tape.</em><br><br>
+  &copy; 2024-2026 iisaacbeats.cn
+</p>
