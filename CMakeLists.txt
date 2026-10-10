@@ -24,7 +24,7 @@ juce_add_plugin(
         BUNDLE_ID "cn.iisaacbeats.Break"
         PLUGIN_MANUFACTURER_CODE Isac
         PLUGIN_CODE Brk1
-        FORMATS Standalone VST3
+        FORMATS Standalone VST3 AU
         IS_SYNTH FALSE
         NEEDS_MIDI_INPUT FALSE
         NEEDS_MIDI_OUTPUT FALSE

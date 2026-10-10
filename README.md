@@ -247,6 +247,30 @@ I:\Break\cmake-build-ninja\break_dsp_test.exe     # ALL_OK
   `Break.vst3` 并调用 `Break_installer.iss` 打包，产物 `dist\Break_Setup_<ver>_x64.exe`，
   安装到 `C:\Program Files\Common Files\VST3\iisaacbeats.cn`。版本号与 CMake 的
   `VERSION` 保持同步（改版本时同步更新 `.iss` / `.bat` 里的版本常量）。
+- **安装脚本**（macOS）：`build_installer_mac.sh` 用 `pkgbuild`/`productbuild` 把
+  VST3 + AU 打成 `.pkg`，默认再 `hdiutil` 封 `.dmg`（`--no-dmg` 可跳过）。版本号
+  自动从 CMakeLists 的 `project(Break VERSION ...)` 读取，无需手动同步。
+
+## macOS 构建与打包
+
+```bash
+# 在 Mac 上（需 Xcode Command Line Tools）以 Release 构建 VST3 + AU + Standalone
+cmake -S . -B cmake-build-release -G Xcode \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" \
+  -DFETCHCONTENT_SOURCE_DIR_JUCE=<你的 JUCE 源码目录>
+
+cmake --build cmake-build-release --config Release
+# 产物：cmake-build-release/Break_artefacts/Release/{Standalone,VST3,AU}
+
+# 打包 .pkg + .dmg
+chmod +x build_installer_mac.sh
+./build_installer_mac.sh
+```
+
+说明：`FORMATS Standalone VST3 AU`，`AU` 仅在 macOS 生效（Windows 自动忽略）。
+`CMAKE_OSX_ARCHITECTURES="x86_64;arm64"` 打通用二进制，同时兼容 Intel 与 Apple
+Silicon。遥测/更新检查在 macOS 用 JUCE 默认的 NSURLSession 后端，无需 CURL。
 
 ## 后续待办
 
