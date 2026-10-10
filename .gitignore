@@ -1,0 +1,29 @@
+# --- 构建产物 ---
+cmake-build-*/
+dist/
+Builds/
+_deps/
+.vs/
+.vscode/
+
+# --- AI 原始素材（3312x2480 源图，构建不需要）---
+aiassets/
+
+# --- 已废弃/备份资产（已被 ui_plate_unlocked.png 取代）---
+assets/ui_plate.png
+assets/ui_plate_backup.png
+
+# --- 二进制产物 ---
+*.exe
+*.vst3
+*.dll
+*.lib
+*.obj
+*.pdb
+*.exp
+*.ilk
+*.res
+*.ipch
+
+# --- 其它 ---
+CMakeUserPresets.json
