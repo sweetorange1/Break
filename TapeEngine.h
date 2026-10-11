@@ -485,6 +485,11 @@ namespace tape
             if (numSamples <= 0 || numChannels <= 0)
                 return;
 
+            // 防御：prepareToPlay 尚未调用时 voices 为空，下面多处直接访问
+            // voices[0]，这里必须先拦截，避免越界崩溃。
+            if (voices.empty())
+                return;
+
             const int nCh = std::min (numChannels, (int) voices.size());
 
             // ---- 油门+刹车同踩 → 刹车优先（油门视为 0，不再叠加）----

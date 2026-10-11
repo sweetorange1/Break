@@ -51,6 +51,11 @@ public:
     std::atomic<float> gasForce   { 0.0f };
     std::atomic<float> brakeForce { 0.0f };
 
+    // 最近一次在音频线程读到的宿主 BPM（供消息线程只读）。绝不能在消息线程
+    // 调 getPlayHead()->getPosition()——宿主 playhead 通常只允许音频线程访问，
+    // 两线程并发读取是"点停带后偶发崩溃"的根因。
+    std::atomic<float> cachedBpm { 120.0f };
+
     // v1 直接暴露参数指针给编辑器；接入 APVTS 是后续工作
     juce::AudioParameterFloat* gasParam   = nullptr;
     juce::AudioParameterFloat* brakeParam = nullptr;

@@ -71,10 +71,9 @@ void BreakAudioProcessor::prepareToPlay (double sampleRate, int)
 
 double BreakAudioProcessor::getCurrentBpm() const
 {
-    double bpm;
-    int    samplesToNextBeat;
-    readPlayhead (bpm, samplesToNextBeat);
-    return bpm;
+    // 只读音频线程缓存的 BPM，绝不在消息线程调 getPlayHead()->getPosition()
+    // （否则与音频线程的 processBlock 并发访问宿主 playhead → 偶发崩溃）。
+    return (double) cachedBpm.load (std::memory_order_relaxed);
 }
 
 void BreakAudioProcessor::readPlayhead (double& bpm, int& samplesToNextBeat) const
@@ -120,7 +119,8 @@ void BreakAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::
 
     double bpm = 120.0;
     int    samplesToNextBeat = -1;
-    readPlayhead (bpm, samplesToNextBeat);
+    readPlayhead (bpm, samplesToNextBeat);   // 仅在音频线程访问 playhead
+    cachedBpm.store ((float) bpm, std::memory_order_relaxed);
 
     tapeEngine.process (buffer.getArrayOfWritePointers(),
                         buffer.getNumChannels(),
