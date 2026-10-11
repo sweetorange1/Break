@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(Break VERSION 1.0.1 LANGUAGES C CXX)
+project(Break VERSION 1.0.2 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,7 +24,9 @@ juce_add_plugin(
         BUNDLE_ID "cn.iisaacbeats.Break"
         PLUGIN_MANUFACTURER_CODE Isac
         PLUGIN_CODE Brk1
-        FORMATS Standalone VST3 AU
+        FORMATS Standalone VST3 AU AAX
+        AAX_IDENTIFIER cn.iisaacbeats.Break
+        AAX_CATEGORY AAX_ePlugInCategory_Modulation
         IS_SYNTH FALSE
         NEEDS_MIDI_INPUT FALSE
         NEEDS_MIDI_OUTPUT FALSE

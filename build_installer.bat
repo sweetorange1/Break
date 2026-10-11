@@ -3,8 +3,8 @@ setlocal
 
 REM ============================================================
 REM  Break - Windows Release Installer Builder
-REM  Version : 1.0.1
-REM  Output  : dist\Break_Setup_1.0.1_x64.exe
+REM  Version : 1.0.2
+REM  Output  : dist\Break_Setup_1.0.2_x64.exe
 REM
 REM  设计原则（KISS）：本脚本不触碰编译。
 REM    1) 校验 Release 版 VST3 产物是否存在（自动探测多个构建目录）
@@ -13,7 +13,7 @@ REM    3) 调用 ISCC 打包，产物输出到 dist\
 REM ============================================================
 
 set "APP_NAME=Break"
-set "APP_VERSION=1.0.1"
+set "APP_VERSION=1.0.2"
 set "SCRIPT_DIR=%~dp0"
 set "ISS_FILE=%SCRIPT_DIR%Break_installer.iss"
 set "DIST_DIR=%SCRIPT_DIR%dist"
@@ -50,6 +50,21 @@ if not defined VST3_DIR (
   exit /b 1
 )
 
+REM ---------- 1b) 自动探测 AAX 顶层目录（包含 Break.aaxplugin bundle 的父目录）----------
+set "AAX_DIR="
+
+if exist "%SCRIPT_DIR%cmake-build-vs\Break_artefacts\Release\AAX\Break.aaxplugin" (
+  set "AAX_DIR=%SCRIPT_DIR%cmake-build-vs\Break_artefacts\Release\AAX"
+)
+
+if not defined AAX_DIR if exist "%SCRIPT_DIR%cmake-build-ninja\Break_artefacts\Release\AAX\Break.aaxplugin" (
+  set "AAX_DIR=%SCRIPT_DIR%cmake-build-ninja\Break_artefacts\Release\AAX"
+)
+
+if not defined AAX_DIR (
+  echo [WARN] 未找到 AAX 构建产物 Break.aaxplugin，安装包将只包含 VST3。
+)
+
 if not exist "%DIST_DIR%" (
   mkdir "%DIST_DIR%"
 )
@@ -68,8 +83,10 @@ if not exist "%ISCC_PATH%" (
 echo [INFO] 编译器:   "%ISCC_PATH%"
 echo [INFO] 安装脚本: "%ISS_FILE%"
 echo [INFO] VST3 产物: "%VST3_DIR%"
+if defined AAX_DIR echo [INFO] AAX  产物: "%AAX_DIR%"
 
 set "ISCC_EXTRA_FLAGS=-DVST3_DIR=%VST3_DIR%"
+if defined AAX_DIR set "ISCC_EXTRA_FLAGS=%ISCC_EXTRA_FLAGS% -DAAX_DIR=%AAX_DIR%"
 
 echo [INFO] 开始打包 ...
 echo ------------------------------------------------------------
