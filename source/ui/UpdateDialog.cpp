@@ -13,7 +13,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-namespace brk {
+namespace iisaac {
 namespace ui {
 
 namespace {
@@ -36,7 +36,7 @@ void drawScanlines(juce::Graphics& g, juce::Rectangle<int> area) {
 // ==========================================================
 // 构造
 // ==========================================================
-UpdateDialog::UpdateDialog(const brk::network::UpdateInfo& info,
+UpdateDialog::UpdateDialog(const iisaac::network::UpdateInfo& info,
                            std::function<void()> onClose)
     : info_(info), onClose_(std::move(onClose)) {
   setOpaque(true);
@@ -283,7 +283,7 @@ void UpdateDialog::CloseDialog() {
 // ShowInComponent（静态工厂）
 // ==========================================================
 UpdateDialog* UpdateDialog::ShowInComponent(
-    const brk::network::UpdateInfo& info,
+    const iisaac::network::UpdateInfo& info,
     std::function<void()> onClose) {
   auto* dlg = new UpdateDialog(info, std::move(onClose));
 
@@ -305,4 +305,4 @@ UpdateDialog* UpdateDialog::ShowInComponent(
 }
 
 }  // namespace ui
-}  // namespace brk
+}  // namespace iisaac

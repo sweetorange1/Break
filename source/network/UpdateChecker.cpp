@@ -22,7 +22,7 @@
 #include <thread>
 #include <vector>
 
-namespace brk {
+namespace iisaac {
 namespace network {
 
 namespace {
@@ -80,7 +80,7 @@ void ShowUpdateDialog(const UpdateInfo& info) {
   jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
 
   // 优先使用自定义风格弹窗
-  auto* dlg = brk::ui::UpdateDialog::ShowInComponent(info);
+  auto* dlg = iisaac::ui::UpdateDialog::ShowInComponent(info);
   if (dlg != nullptr) {
     return;
   }
@@ -178,4 +178,4 @@ void CheckForUpdatesAsync(
 }
 
 }  // namespace network
-}  // namespace brk
+}  // namespace iisaac

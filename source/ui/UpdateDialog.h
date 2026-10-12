@@ -17,12 +17,12 @@
 
 #include "../network/UpdateChecker.h"
 
-namespace brk {
+namespace iisaac {
 namespace ui {
 
 class UpdateDialog : public juce::Component {
 public:
-  UpdateDialog(const brk::network::UpdateInfo& info,
+  UpdateDialog(const iisaac::network::UpdateInfo& info,
                std::function<void()> onClose = {});
 
   void paint(juce::Graphics& g) override;
@@ -32,7 +32,7 @@ public:
   void mouseUp(const juce::MouseEvent& e) override;
 
   // 便捷工厂：创建独立原生小窗口并居中于主显示器。
-  static UpdateDialog* ShowInComponent(const brk::network::UpdateInfo& info,
+  static UpdateDialog* ShowInComponent(const iisaac::network::UpdateInfo& info,
                                        std::function<void()> onClose = {});
 
 private:
@@ -50,7 +50,7 @@ private:
   // 标题栏高度
   static constexpr int kTitleBarH = 28;
 
-  brk::network::UpdateInfo info_;
+  iisaac::network::UpdateInfo info_;
   std::function<void()> onClose_;
 
   int hoveredBtn_ = -1;
@@ -71,4 +71,4 @@ private:
 };
 
 }  // namespace ui
-}  // namespace brk
+}  // namespace iisaac

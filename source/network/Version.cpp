@@ -7,7 +7,7 @@
 
 #include <juce_core/juce_core.h>
 
-namespace brk {
+namespace iisaac {
 namespace network {
 
 // 解析 "X.Y.Z" 或 "X.Y.Z-prerelease" 或 "X.Y.Z-prerelease+build"
@@ -107,4 +107,4 @@ int CompareVersions(const SemVer& a, const SemVer& b) {
 }
 
 }  // namespace network
-}  // namespace brk
+}  // namespace iisaac

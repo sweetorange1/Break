@@ -13,7 +13,7 @@
 
 #include <juce_core/juce_core.h>
 
-namespace brk {
+namespace iisaac {
 namespace network {
 
 // 表示一个解析后的语义化版本
@@ -46,4 +46,4 @@ inline int CompareVersionStrings(const juce::String& a, const juce::String& b) {
 }
 
 }  // namespace network
-}  // namespace brk
+}  // namespace iisaac

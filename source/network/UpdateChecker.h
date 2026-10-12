@@ -18,7 +18,7 @@
 
 #include <functional>
 
-namespace brk {
+namespace iisaac {
 namespace network {
 
 // 服务端返回的更新信息
@@ -54,4 +54,4 @@ void CheckForUpdatesAsync(
 void ShowUpdateDialog(const UpdateInfo& info);
 
 }  // namespace network
-}  // namespace brk
+}  // namespace iisaac

@@ -50,14 +50,14 @@ BreakAudioProcessor::BreakAudioProcessor()
     {
         juce::Timer::callAfterDelay (5000, []
         {
-            brk::network::CheckForUpdatesAsync (
+            iisaac::network::CheckForUpdatesAsync (
                 "break",
                 juce::String (JucePlugin_VersionString),
                 GetUpdatePlatformString(),
-                [] (const brk::network::UpdateInfo& info)
+                [] (const iisaac::network::UpdateInfo& info)
                 {
                     if (info.has_update)
-                        brk::network::ShowUpdateDialog (info);
+                        iisaac::network::ShowUpdateDialog (info);
                 });
         });
     }
