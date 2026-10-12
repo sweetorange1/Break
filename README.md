@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.0.2-blue" alt="Version">
   <img src="https://img.shields.io/badge/platform-Windows%20%2F%20macOS-lightgrey" alt="Platform">
   <img src="https://img.shields.io/badge/framework-JUCE%208.0.12-orange" alt="JUCE">
 </p>
@@ -108,13 +108,13 @@ cmake --build cmake-build-release --config Release
 ```bash
 # Windows —— 需要先安装 Inno Setup 6 / Requires Inno Setup 6
 build_installer.bat
-# 产物 Output：dist\Break_Setup_1.0.0_x64.exe
+# 产物 Output：dist\Break_Setup_1.0.2_x64.exe
 
 # macOS —— 需先用 Release 构建 VST3 + AU 目标
 chmod +x build_installer_mac.sh
 ./build_installer_mac.sh          # pkg + dmg
 ./build_installer_mac.sh --no-dmg # 仅 pkg only
-# 产物 Output：dist\Break_Setup_1.0.0_macOS.pkg / .dmg
+# 产物 Output：dist\Break_Setup_1.0.2_macOS.pkg / .dmg
 ```
 
 Windows 安装器把 VST3 装入 `C:\Program Files\Common Files\VST3\iisaacbeats.cn`（需管理员权限）；macOS 安装器提供 VST3（`/Library/Audio/Plug-Ins/VST3`）与 AU（`/Library/Audio/Plug-Ins/Components`）两个可选组件。
